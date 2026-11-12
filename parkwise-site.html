@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>ParkWise</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: blue signage bar on top, three workspaces (Book a bay, My tickets, Admin) switched by hash.
+   The lot map draws bays as painted lines on asphalt; yellow road paint marks the one thing you chose. */
+:root{
+  --bg:#eaeef4; --surface:#ffffff; --surface-2:#f4f6fa; --ink:#12202f; --muted:#556577; --line:#d3dae6;
+  --accent:#1c4fd7; --accent-ink:#ffffff; --accent-soft:#e1e9fd;
+  --bar:#173fb0; --bar-ink:#ffffff;
+  --paint:#f2b705; --paint-ink:#2a2000;
+  --asphalt:#a9b5c5; --stripe:#ffffff; --lane-ink:#26364a;
+  --ok:#14724a; --ok-bg:#d9f1e4; --warn:#8f5200; --warn-bg:#fbe9c4; --bad:#b0261e; --bad-bg:#f9d9d5;
+  --busy:#5d6b7c; --busy-bg:#dfe4ec;
+  --font-display:'Barlow Condensed','Arial Narrow',Arial,sans-serif;
+  --font-body:'Barlow',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1420; --surface:#14212f; --surface-2:#1a2a3b; --ink:#e6edf6; --muted:#9bb0c6; --line:#2a3b4f;
+    --accent:#7aa5ff; --accent-ink:#0a1530; --accent-soft:#1b2f5c;
+    --bar:#0f2557; --bar-ink:#ffffff;
+    --paint:#f2c230; --paint-ink:#2a2000;
+    --asphalt:#0a121c; --stripe:#c4d0e0; --lane-ink:#8da0b6;
+    --ok:#5fd39a; --ok-bg:#12372a; --warn:#f0b54a; --warn-bg:#3b2d10; --bad:#ff8f86; --bad-bg:#401b19;
+    --busy:#8d9bad; --busy-bg:#202e3f;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1420; --surface:#14212f; --surface-2:#1a2a3b; --ink:#e6edf6; --muted:#9bb0c6; --line:#2a3b4f;
+  --accent:#7aa5ff; --accent-ink:#0a1530; --accent-soft:#1b2f5c;
+  --bar:#0f2557; --bar-ink:#ffffff;
+  --paint:#f2c230; --paint-ink:#2a2000;
+  --asphalt:#0a121c; --stripe:#c4d0e0; --lane-ink:#8da0b6;
+  --ok:#5fd39a; --ok-bg:#12372a; --warn:#f0b54a; --warn-bg:#3b2d10; --bad:#ff8f86; --bad-bg:#401b19;
+  --busy:#8d9bad; --busy-bg:#202e3f;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5}
+h1,h2,h3{font-family:var(--font-display);font-weight:600;line-height:1.05;margin:0;text-wrap:balance;letter-spacing:.005em}
+h1{font-size:clamp(32px,6vw,46px)}
+h2{font-size:26px}
+h3{font-size:20px}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.eyebrow{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:6px}
+.mono{font-family:var(--font-mono)}
+.tnum{font-variant-numeric:tabular-nums}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.wrap{max-width:1120px;margin-inline:auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main.wrap{padding-block:22px 40px}
+
+/* Signage bar */
+.bar{background:var(--bar);color:var(--bar-ink)}
+.bar .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;padding-block:12px}
+.brand{display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none}
+.brand-mark{width:38px;height:38px;border-radius:6px;background:#fff;color:#173fb0;display:grid;place-items:center;font-family:var(--font-display);font-weight:700;font-size:30px;line-height:1}
+.brand-name{font-family:var(--font-display);font-weight:600;font-size:26px;letter-spacing:.02em}
+.brand-sub{display:block;font-size:12px;opacity:.8;letter-spacing:.04em}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{color:var(--bar-ink);text-decoration:none;padding:7px 14px;border-radius:4px;font-weight:600;font-size:14px;border:1px solid rgba(255,255,255,.28)}
+nav a:hover{background:rgba(255,255,255,.12)}
+nav a[aria-current="page"]{background:var(--paint);color:var(--paint-ink);border-color:var(--paint)}
+nav a:focus-visible{outline-color:#fff}
+
+/* Shared parts */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+.btn{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;font:600 14px var(--font-body);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--bad)}
+.btn.sm{height:32px;padding:0 10px;font-size:13px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn-row{display:flex;flex-wrap:wrap;gap:8px}
+label{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:5px}
+input,select{width:100%;height:40px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:500 15px var(--font-body)}
+input.mono{font-family:var(--font-mono);text-transform:uppercase}
+.field{min-width:0}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.err{color:var(--bad);font-weight:500;min-height:1.4em;font-size:14px}
+.pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.st-booked{background:var(--accent-soft);color:var(--accent)}
+.st-parked{background:var(--ok-bg);color:var(--ok)}
+.st-done{background:var(--busy-bg);color:var(--busy)}
+.st-cancelled{background:var(--bad-bg);color:var(--bad)}
+.st-alert{background:var(--warn-bg);color:var(--warn)}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 16px;margin:0;font-variant-numeric:tabular-nums}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-weight:500;overflow-wrap:anywhere}
+.view[hidden]{display:none!important}
+.intro{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;max-width:62ch}
+
+/* Book */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+.col-main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.side{position:sticky;top:16px;display:flex;flex-direction:column;gap:14px}
+.segs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.seg{appearance:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:9px 12px;border:1.5px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:6px;cursor:pointer;font-family:var(--font-body);text-align:left;min-width:0}
+.seg-n{font-family:var(--font-display);font-size:20px;font-weight:600;line-height:1.1}
+.seg-r{font-size:12px;color:var(--muted)}
+.seg[aria-pressed="true"]{border-color:var(--accent);background:var(--surface);box-shadow:inset 0 0 0 1px var(--accent)}
+.map-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 16px;margin-bottom:12px}
+.lot{background:var(--asphalt);border-radius:6px;padding:14px 12px;display:grid;gap:8px}
+.lot-row{display:grid;gap:6px}
+.bay{appearance:none;min-height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:var(--surface);color:var(--ink);border:0;border-left:3px solid var(--stripe);border-right:3px solid var(--stripe);cursor:pointer;font-family:var(--font-body);padding:4px 2px;min-width:0}
+.bay.top{border-bottom:3px solid var(--stripe)}
+.bay.bot{border-top:3px solid var(--stripe)}
+.bay-id{font-family:var(--font-display);font-size:23px;font-weight:600;line-height:1}
+.bay-st{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ok)}
+.bay.free:hover{outline:2px solid var(--accent);outline-offset:-3px}
+.bay.taken{background:var(--busy-bg);color:var(--muted);cursor:not-allowed}
+.bay.taken .bay-st{color:var(--muted)}
+.bay.closed{background:repeating-linear-gradient(135deg,var(--bad-bg) 0 6px,var(--surface) 6px 12px);cursor:not-allowed}
+.bay.closed .bay-st{color:var(--bad)}
+.bay.sel{background:var(--paint);color:var(--paint-ink)}
+.bay.sel .bay-st{color:var(--paint-ink)}
+.lane{position:relative;height:34px;display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--lane-ink)}
+.lane::after{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px dashed var(--paint)}
+.lane span{position:relative;z-index:1;background:var(--asphalt);padding:0 8px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:12px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:2px;vertical-align:-2px;margin-right:6px;border:1px solid var(--line)}
+.lg-free{background:var(--surface)}
+.lg-taken{background:var(--busy-bg)}
+.lg-closed{background:repeating-linear-gradient(135deg,var(--bad-bg) 0 4px,var(--surface) 4px 8px)}
+.lg-sel{background:var(--paint)}
+.rate-list{display:grid;gap:6px;margin:4px 0 0;padding:0;list-style:none}
+.rate-list li{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:6px}
+.cost{background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:4px}
+.cost-row{display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+.cost-total{font-family:var(--font-display);font-size:30px;font-weight:600;line-height:1}
+.form{display:flex;flex-direction:column;gap:12px}
+.ticket{border:1.5px solid var(--ink);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:12px;background:var(--surface-2)}
+.t-code{font-family:var(--font-mono);font-weight:500;font-size:28px;letter-spacing:.04em}
+.t-code.sm{font-size:20px}
+
+/* Tickets */
+.tickets-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:16px}
+.tcard{display:flex;flex-direction:column;gap:12px}
+.tc-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.find{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.find .field{flex:1 1 200px}
+.empty{padding:28px 16px;text-align:center;color:var(--muted);border:1.5px dashed var(--line);border-radius:6px}
+
+/* Admin */
+.gate{max-width:420px;margin:24px auto}
+.gate .form{margin-top:14px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0}
+.tab{appearance:none;height:36px;padding:0 16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;font:600 14px var(--font-body);cursor:pointer}
+.tab[aria-current="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.admin-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:10px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px}
+.tile-n{font-family:var(--font-display);font-size:42px;font-weight:600;line-height:1;margin:6px 0 4px;font-variant-numeric:tabular-nums}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-bottom:16px}
+.zbar{display:grid;gap:4px;margin-top:12px}
+.zbar-top{display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.track{height:10px;background:var(--surface-2);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.fill{height:100%;background:var(--accent)}
+.hours{display:grid;grid-template-columns:repeat(17,minmax(0,1fr));gap:3px;align-items:end;height:150px;margin-top:12px;border-bottom:1px solid var(--line);background:linear-gradient(to top,var(--line) 1px,transparent 1px) 0 0/100% 50%}
+.hcol{height:100%;display:flex;align-items:flex-end}
+.hbar{width:100%;background:var(--accent);min-height:2px;border-radius:2px 2px 0 0}
+.hbar.now{background:var(--paint)}
+.hlabels{display:grid;grid-template-columns:repeat(17,minmax(0,1fr));gap:3px;margin-top:4px;font-size:10.5px;color:var(--muted);text-align:center}
+.hlabels span{white-space:nowrap;overflow:visible}
+.attn{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.attn-item{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2)}
+.attn-item .mono{font-size:13px}
+.bay-zone{margin-bottom:16px}
+.bay-zone-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+.bay-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.bcard{appearance:none;text-align:left;display:flex;flex-direction:column;gap:2px;padding:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;font-family:var(--font-body);cursor:pointer;min-width:0}
+.bcard:hover{border-color:var(--accent)}
+.bcard .bay-id{font-size:24px}
+.bcard-st{font-size:12px;color:var(--ok);font-weight:600;overflow-wrap:anywhere}
+.bcard-hint{font-size:11px;color:var(--muted)}
+.bcard.occ{background:var(--busy-bg)}
+.bcard.occ .bcard-st{color:var(--muted)}
+.bcard.closed{background:repeating-linear-gradient(135deg,var(--bad-bg) 0 6px,var(--surface) 6px 12px)}
+.bcard.closed .bcard-st{color:var(--bad)}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.toolbar .field{flex:1 1 180px}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:780px;font-size:14px}
+th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);background:var(--surface-2);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+td .btn-row{flex-wrap:nowrap}
+.rates{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:14px 0}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:6px;font-weight:500;font-size:14px;z-index:20;max-width:calc(100% - 32px);box-shadow:0 6px 24px rgba(0,0,0,.25)}
+footer.wrap{padding-bottom:28px;color:var(--muted);font-size:13px}
+
+@media (max-width:860px){
+  .layout{grid-template-columns:minmax(0,1fr)}
+  .side{position:static}
+  .two{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:480px){
+  .segs{gap:6px}
+  .seg{padding:8px}
+  .bay{min-height:62px}
+  .bay-id{font-size:20px}
+  .lot{padding:10px 8px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#book" aria-label="ParkWise home">
+      <span class="brand-mark" aria-hidden="true">P</span>
+      <span><span class="brand-name">ParkWise</span><span class="brand-sub">Open daily 6 AM to 11 PM</span></span>
+    </a>
+    <nav aria-label="Main">
+      <a href="#book" data-nav="book">Book a bay</a>
+      <a href="#tickets" data-nav="tickets">My tickets</a>
+      <a href="#admin" data-nav="admin">Admin</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="view-book" class="view">
+    <div class="intro">
+      <h1>Reserve your bay before you arrive</h1>
+      <p class="muted">Choose your vehicle and time, tap a free bay, and pay at the gate when you leave.</p>
+    </div>
+    <div class="layout">
+      <div class="col-main">
+        <div class="panel">
+          <div class="eyebrow">Vehicle</div>
+          <div class="segs" id="seg"></div>
+          <div class="fields">
+            <div class="field"><label for="f-date">Date</label><input type="date" id="f-date"></div>
+            <div class="field"><label for="f-start">Arrive at</label><select id="f-start"></select></div>
+            <div class="field"><label for="f-dur">Stay for</label><select id="f-dur"></select></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="map-head">
+            <h2 id="map-title">Bays</h2>
+            <p class="muted small tnum" id="map-sub"></p>
+          </div>
+          <div id="map" class="lot"></div>
+          <div class="legend" aria-hidden="true">
+            <span><i class="lg-free"></i>Free</span>
+            <span><i class="lg-taken"></i>Taken for your time</span>
+            <span><i class="lg-closed"></i>Closed</span>
+            <span><i class="lg-sel"></i>Your pick</span>
+          </div>
+        </div>
+      </div>
+      <aside class="panel side" id="bookpanel" aria-live="polite"></aside>
+    </div>
+  </section>
+
+  <section id="view-tickets" class="view" hidden>
+    <div class="intro">
+      <h1>My tickets</h1>
+      <p class="muted">Tickets booked in this browser appear here. Add one from another device with its code.</p>
+    </div>
+    <form class="panel find" id="find-form" novalidate>
+      <div class="field"><label for="f-code">Ticket code</label><input id="f-code" class="mono" placeholder="PW-1004" autocomplete="off"></div>
+      <button class="btn primary" type="submit">Find ticket</button>
+      <p class="small muted" id="find-msg" style="flex-basis:100%" role="status"></p>
+    </form>
+    <div class="tickets-grid" id="tickets-list"></div>
+  </section>
+
+  <section id="view-admin" class="view" hidden>
+    <div id="admin-root"></div>
+  </section>
+
+</main>
+
+<footer class="wrap">Sample lot for demonstration. Reservations and settings are saved in this browser only.</footer>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function(){
+'use strict';
+
+var HOUR=3600000, OPEN=6, CLOSE=23, HOLD=30*60000, PIN='1234', KEY='parkwise-demo-v1';
+var ZONES={A:{label:'Car bays',veh:'Car'},B:{label:'Two-wheeler bays',veh:'Two-wheeler'},C:{label:'EV charging bays',veh:'EV'}};
+var STATUS={booked:'Booked',parked:'Parked',done:'Completed',cancelled:'Cancelled'};
+
+function $(s){return document.querySelector(s);}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function inr(n){return '₹'+Number(n).toLocaleString('en-IN');}
+function pad(n){return String(n).padStart(2,'0');}
+function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function hh(h){return ((h+11)%12+1)+':00 '+(h%24<12?'AM':'PM');}
+function hshort(h){return ((h+11)%12+1)+(h<12?'a':'p');}
+function fmtT(ms){var d=new Date(ms),h=d.getHours(),m=d.getMinutes();return ((h+11)%12+1)+':'+pad(m)+' '+(h<12?'AM':'PM');}
+function fmtD(ms){return new Date(ms).toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});}
+function fmtRange(b){return fmtD(b.start)+', '+fmtT(b.start)+' to '+fmtT(b.end);}
+function isActive(b){return b.status==='booked'||b.status==='parked';}
+
+/* ---------- data ---------- */
+function seed(){
+  var nd=new Date(), baseH=Math.min(17,Math.max(8,nd.getHours()));
+  var base=new Date(nd.getFullYear(),nd.getMonth(),nd.getDate(),baseH).getTime();
+  var counts={A:12,B:16,C:6}, slots=[];
+  Object.keys(counts).forEach(function(z){
+    for(var i=1;i<=counts[z];i++){slots.push({id:z+i,zone:z,status:(z+i==='A9'||z+i==='B14')?'maint':'ok'});}
+  });
+  var rates={A:40,B:10,C:60};
+  var rows=[
+    ['A2','TN 01 AB 4521','Karthik R','9841012345',-1,3,'parked'],
+    ['A4','TN 22 CD 7788','Meena S','9884456123',0,2,'booked'],
+    ['A5','TN 07 BX 1020','Arjun P','9790011223',-4,2,'done'],
+    ['A7','TN 11 EF 3305','Divya K','9444098765',2,3,'booked'],
+    ['A11','TN 38 GH 9012','Sundar M','9965432101',-4,3,'parked'],
+    ['B1','TN 21 JK 6642','Ravi T','9003377881',-1,4,'parked'],
+    ['B2','TN 09 LM 1187','Priya N','9840511220',-1,3,'booked'],
+    ['B5','TN 10 NP 2290','Imran A','9884123456',-2,3,'parked'],
+    ['B6','TN 14 QR 5531','Lakshmi V','9791234567',1,2,'cancelled'],
+    ['B9','TN 02 ST 4010','Naveen B','9585012345',1,2,'booked'],
+    ['B12','TN 05 UV 7743','Anita C','9677890123',0,4,'booked'],
+    ['C2','TN 37 WX 8821','Rohit G','9944556677',-1,3,'parked'],
+    ['C4','TN 18 YZ 1209','Sneha L','9786001234',1,3,'booked']
+  ];
+  var bookings=rows.map(function(r,i){
+    return {code:'PW-'+(1001+i),slot:r[0],plate:r[1],name:r[2],phone:r[3],start:base+r[4]*HOUR,end:base+(r[4]+r[5])*HOUR,hours:r[5],amount:r[5]*rates[r[0].charAt(0)],status:r[6]};
+  });
+  return {rates:rates,slots:slots,bookings:bookings,seq:1001+rows.length,mine:['PW-1004']};
+}
+function load(){
+  try{var r=localStorage.getItem(KEY);if(r){var o=JSON.parse(r);if(o&&o.slots&&o.bookings&&o.rates)return o;}}catch(e){}
+  return null;
+}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+}
+var S=load()||seed();
+if(!S.mine)S.mine=[];
+
+/* ---------- ui state ---------- */
+var view='book', armed=null, toastTimer=null;
+var U={vehicle:'A',date:'',start:OPEN,dur:2,slot:null,last:null,form:{name:'',phone:'',plate:''}};
+var A={authed:false,tab:'overview',filter:'all',q:'',pinErr:'',rateMsg:''};
+
+function initWindow(){
+  var now=new Date(), h=now.getHours()+1, d=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  if(now.getMinutes()===0)h=now.getHours();
+  if(h<OPEN)h=OPEN;
+  if(h>CLOSE-1){d.setDate(d.getDate()+1);h=OPEN;}
+  U.date=ymd(d);U.start=h;U.dur=Math.min(2,CLOSE-h);
+}
+function hasHours(dateStr){
+  if(dateStr!==ymd(new Date()))return true;
+  return new Date().getHours()<CLOSE-1;
+}
+function win(){
+  var p=U.date.split('-').map(Number);
+  var s=new Date(p[0],p[1]-1,p[2],U.start).getTime();
+  return [s,s+U.dur*HOUR];
+}
+function overlapping(slotId,s,e){
+  return S.bookings.find(function(b){return isActive(b)&&b.slot===slotId&&b.start<e&&s<b.end;});
+}
+function bayState(slot,s,e){
+  if(slot.status==='maint')return 'closed';
+  return overlapping(slot.id,s,e)?'taken':'free';
+}
+function zoneSlots(z){return S.slots.filter(function(x){return x.zone===z;});}
+function normPlate(v){
+  var n=String(v).toUpperCase().replace(/[\s-]+/g,'');
+  var m=n.match(/^([A-Z]{2})(\d{1,2})([A-Z]{1,3})(\d{4})$/);
+  return m?m.slice(1).join(' '):null;
+}
+function toast(msg){
+  var t=$('#toast');t.textContent=msg;t.hidden=false;
+  clearTimeout(toastTimer);toastTimer=setTimeout(function(){t.hidden=true;},3200);
+}
+
+/* ---------- booking view ---------- */
+function syncControls(){
+  var today=ymd(new Date()), nowH=new Date().getHours();
+  var max=new Date();max.setDate(max.getDate()+7);
+  var dateEl=$('#f-date');dateEl.min=today;dateEl.max=ymd(max);dateEl.value=U.date;
+  if(U.date===today&&U.start<nowH)U.start=Math.min(Math.max(nowH,OPEN),CLOSE-1);
+  var o='';
+  for(var h=OPEN;h<=CLOSE-1;h++){
+    var past=U.date===today&&h<nowH;
+    o+='<option value="'+h+'"'+(past?' disabled':'')+(h===U.start?' selected':'')+'>'+hh(h)+'</option>';
+  }
+  $('#f-start').innerHTML=o;
+  var maxDur=Math.min(12,CLOSE-U.start);
+  if(U.dur>maxDur)U.dur=maxDur;
+  var d='';
+  for(var n=1;n<=maxDur;n++){d+='<option value="'+n+'"'+(n===U.dur?' selected':'')+'>'+n+(n===1?' hour':' hours')+'</option>';}
+  $('#f-dur').innerHTML=d;
+}
+function renderSeg(){
+  $('#seg').innerHTML=Object.keys(ZONES).map(function(z){
+    return '<button type="button" class="seg" data-action="veh" data-v="'+z+'" aria-pressed="'+(U.vehicle===z)+'"><span class="seg-n">'+ZONES[z].veh+'</span><span class="seg-r">'+inr(S.rates[z])+' per hour</span></button>';
+  }).join('');
+}
+function renderMap(){
+  var w=win(), s=w[0], e=w[1];
+  var slots=zoneSlots(U.vehicle);
+  if(U.slot){
+    var cur=S.slots.find(function(x){return x.id===U.slot;});
+    if(!cur||cur.zone!==U.vehicle||bayState(cur,s,e)!=='free')U.slot=null;
+  }
+  var half=Math.ceil(slots.length/2), top=slots.slice(0,half), bot=slots.slice(half);
+  var free=slots.filter(function(x){return bayState(x,s,e)==='free';}).length;
+  function cell(x,pos){
+    var st=bayState(x,s,e), sel=U.slot===x.id;
+    var cls=sel?'sel':st, label=sel?'Yours':(st==='free'?'Free':(st==='taken'?'Taken':'Closed'));
+    return '<button type="button" class="bay '+pos+' '+cls+'" data-action="pick" data-slot="'+x.id+'"'+((st!=='free')?' disabled':'')+' aria-pressed="'+sel+'" aria-label="Bay '+x.id+', '+label+'"><span class="bay-id">'+x.id+'</span><span class="bay-st">'+label+'</span></button>';
+  }
+  var colsStyle='grid-template-columns:repeat('+Math.max(half,1)+',minmax(0,1fr))';
+  $('#map').innerHTML=
+    '<div class="lot-row" style="'+colsStyle+'">'+top.map(function(x){return cell(x,'top');}).join('')+'</div>'+
+    '<div class="lane"><span>Exit</span><span>Drive lane</span><span>Entry</span></div>'+
+    '<div class="lot-row" style="'+colsStyle+'">'+bot.map(function(x){return cell(x,'bot');}).join('')+'</div>';
+  $('#map-title').textContent=ZONES[U.vehicle].label;
+  $('#map-sub').textContent=free+' of '+slots.length+' free, '+fmtT(s)+' to '+fmtT(e);
+}
+function renderPanel(){
+  var el=$('#bookpanel');
+  if(U.last){
+    var b=U.last;
+    el.innerHTML='<div><div class="eyebrow">Reserved</div><h2>You are booked</h2></div>'+
+      '<div class="ticket"><div class="t-code" id="t-code">'+esc(b.code)+'</div>'+
+      '<dl class="kv"><dt>Bay</dt><dd>'+esc(b.slot)+'</dd><dt>Vehicle</dt><dd class="mono">'+esc(b.plate)+'</dd><dt>Time</dt><dd>'+esc(fmtRange(b))+'</dd><dt>To pay</dt><dd>'+inr(b.amount)+' at exit</dd></dl></div>'+
+      '<div class="btn-row"><button class="btn" data-action="copy" data-code="'+esc(b.code)+'">Copy code</button><a class="btn" href="#tickets">My tickets</a><button class="btn primary" data-action="again">Book another</button></div>'+
+      '<p class="muted small">Show this code at the gate. Your bay is held for 30 minutes after your arrival time.</p>';
+    return;
+  }
+  if(!U.slot){
+    el.innerHTML='<div><div class="eyebrow">Your reservation</div><h2>Pick a bay</h2></div>'+
+      '<p class="muted">Tap a free bay on the map. Yellow marks your choice.</p>'+
+      '<ul class="rate-list">'+Object.keys(ZONES).map(function(z){return '<li><span>'+ZONES[z].veh+'</span><span class="tnum">'+inr(S.rates[z])+' per hour</span></li>';}).join('')+'</ul>'+
+      '<p class="muted small">Pay at the gate when you leave. Free cancellation until you check in.</p>';
+    return;
+  }
+  var w=win(), z=U.slot.charAt(0), total=S.rates[z]*U.dur;
+  el.innerHTML='<div><div class="eyebrow">Your reservation</div><h2>Bay '+esc(U.slot)+'</h2><p class="muted small tnum" style="margin-top:4px">'+esc(ZONES[z].veh)+', '+esc(fmtD(w[0]))+', '+esc(fmtT(w[0]))+' to '+esc(fmtT(w[1]))+'</p></div>'+
+    '<form class="form" id="book-form" novalidate>'+
+      '<div class="field"><label for="f-name">Driver name</label><input id="f-name" autocomplete="name" value="'+esc(U.form.name)+'"></div>'+
+      '<div class="field"><label for="f-phone">Mobile number</label><input id="f-phone" inputmode="numeric" maxlength="10" autocomplete="tel-national" placeholder="10 digits" value="'+esc(U.form.phone)+'"></div>'+
+      '<div class="field"><label for="f-plate">Vehicle number</label><input id="f-plate" class="mono" placeholder="TN 01 AB 1234" autocomplete="off" value="'+esc(U.form.plate)+'"></div>'+
+      '<div class="cost"><div class="cost-row muted"><span>'+inr(S.rates[z])+' x '+U.dur+(U.dur===1?' hour':' hours')+'</span><span>Pay at exit</span></div><div class="cost-total tnum">'+inr(total)+'</div></div>'+
+      '<p class="err" id="form-err" role="alert"></p>'+
+      '<button class="btn primary" type="submit">Reserve bay '+esc(U.slot)+'</button>'+
+    '</form>';
+}
+function renderBook(){syncControls();renderSeg();renderMap();renderPanel();}
+
+function submitBook(){
+  var f=U.form, name=f.name.trim(), phone=f.phone.replace(/\s/g,''), plate=normPlate(f.plate);
+  var w=win(), msg='', focus='';
+  if(name.length<2){msg='Enter the driver name.';focus='#f-name';}
+  else if(!/^[6-9]\d{9}$/.test(phone)){msg='Enter a 10-digit mobile number.';focus='#f-phone';}
+  else if(!plate){msg='Enter the vehicle number like TN 01 AB 1234.';focus='#f-plate';}
+  else {
+    var slot=S.slots.find(function(x){return x.id===U.slot;});
+    if(!slot||bayState(slot,w[0],w[1])!=='free'){msg='That bay was just taken. Pick another bay.';U.slot=null;renderMap();renderPanel();toast(msg);return;}
+    var dup=S.bookings.find(function(b){return isActive(b)&&b.plate===plate&&b.start<w[1]&&w[0]<b.end;});
+    if(dup){msg='This vehicle already has a reservation in that time.';focus='#f-plate';}
+  }
+  if(msg){var er=$('#form-err');if(er)er.textContent=msg;var fe=$(focus);if(fe)fe.focus();return;}
+  var b={code:'PW-'+(S.seq++),slot:U.slot,plate:plate,name:name,phone:phone,start:w[0],end:w[1],hours:U.dur,amount:S.rates[U.slot.charAt(0)]*U.dur,status:'booked'};
+  S.bookings.push(b);S.mine.unshift(b.code);save();
+  U.last=b;U.slot=null;
+  renderMap();renderPanel();
+  toast('Bay '+b.slot+' reserved');
+}
+
+/* ---------- tickets view ---------- */
+function ticketCard(b){
+  var cancel=b.status==='booked'?'<div class="btn-row"><button class="btn sm danger" data-action="cancel" data-code="'+esc(b.code)+'">'+(armed===b.code?'Tap again to cancel':'Cancel ticket')+'</button></div>':'';
+  return '<article class="panel tcard"><div class="tc-top"><span class="t-code sm">'+esc(b.code)+'</span><span class="pill st-'+b.status+'">'+STATUS[b.status]+'</span></div>'+
+    '<dl class="kv"><dt>Bay</dt><dd>'+esc(b.slot)+'</dd><dt>Vehicle</dt><dd class="mono">'+esc(b.plate)+'</dd><dt>Time</dt><dd>'+esc(fmtRange(b))+'</dd><dt>Amount</dt><dd>'+inr(b.amount)+'</dd></dl>'+cancel+'</article>';
+}
+function renderTickets(){
+  var list=S.mine.map(function(c){return S.bookings.find(function(b){return b.code===c;});}).filter(Boolean);
+  $('#tickets-list').innerHTML=list.length?list.map(ticketCard).join(''):'<div class="empty" style="grid-column:1/-1">No tickets yet. Reserve a bay and your ticket shows up here.</div>';
+}
+
+/* ---------- admin view ---------- */
+function nowOcc(id){var n=Date.now();return S.bookings.find(function(b){return isActive(b)&&b.slot===id&&b.start<=n&&n<b.end;});}
+function renderAdmin(){
+  var root=$('#admin-root');
+  if(!A.authed){
+    root.innerHTML='<div class="panel gate"><div class="eyebrow">Staff only</div><h1 style="font-size:36px">Operator sign in</h1>'+
+      '<form class="form" id="pin-form" novalidate><div class="field"><label for="a-pin">Access PIN</label><input id="a-pin" type="password" inputmode="numeric" autocomplete="off"></div>'+
+      '<p class="err" role="alert">'+esc(A.pinErr)+'</p><button class="btn primary" type="submit">Open dashboard</button></form>'+
+      '<p class="muted small" style="margin-top:12px">Demo PIN: 1234</p></div>';
+    return;
+  }
+  var tabs=[['overview','Overview'],['bays','Bays'],['bookings','Bookings'],['rates','Rates']];
+  var body=A.tab==='overview'?adminOverview():A.tab==='bays'?adminBays():A.tab==='bookings'?adminBookings():adminRates();
+  root.innerHTML='<div class="admin-head"><div><div class="eyebrow">Operator</div><h1>Lot dashboard</h1></div><button class="btn" data-action="signout">Sign out</button></div>'+
+    '<div class="tabs" role="tablist">'+tabs.map(function(t){return '<button class="tab" role="tab" data-action="atab" data-tab="'+t[0]+'" aria-current="'+(A.tab===t[0])+'">'+t[1]+'</button>';}).join('')+'</div>'+body;
+  if(A.tab==='bookings')renderRows();
+}
+function adminOverview(){
+  var now=Date.now(), nowH=new Date().getHours(), today=ymd(new Date());
+  var open=S.slots.filter(function(x){return x.status==='ok';});
+  var occ=open.filter(function(x){return nowOcc(x.id);}).length;
+  var tb=S.bookings.filter(function(b){return b.status!=='cancelled'&&ymd(new Date(b.start))===today;});
+  var rev=tb.reduce(function(a,b){return a+b.amount;},0);
+  var coll=tb.filter(function(b){return b.status==='done';}).reduce(function(a,b){return a+b.amount;},0);
+  var closed=S.slots.length-open.length;
+  var pct=open.length?Math.round(occ/open.length*100):0;
+  var tiles='<div class="tiles">'+
+    '<div class="panel"><div class="eyebrow">Occupied now</div><div class="tile-n">'+pct+'%</div><p class="muted small">'+occ+' of '+open.length+' open bays</p></div>'+
+    '<div class="panel"><div class="eyebrow">Bookings today</div><div class="tile-n">'+tb.length+'</div><p class="muted small">'+tb.filter(function(b){return b.status==='parked';}).length+' parked now</p></div>'+
+    '<div class="panel"><div class="eyebrow">Revenue today</div><div class="tile-n">'+inr(rev)+'</div><p class="muted small">'+inr(coll)+' collected at exit</p></div>'+
+    '<div class="panel"><div class="eyebrow">Closed bays</div><div class="tile-n">'+closed+'</div><p class="muted small">Out of service</p></div></div>';
+  var zones=Object.keys(ZONES).map(function(z){
+    var zs=zoneSlots(z).filter(function(x){return x.status==='ok';});
+    var o=zs.filter(function(x){return nowOcc(x.id);}).length, p=zs.length?Math.round(o/zs.length*100):0;
+    return '<div class="zbar"><div class="zbar-top"><span>'+ZONES[z].label+'</span><span class="tnum muted">'+o+' of '+zs.length+'</span></div><div class="track" role="img" aria-label="'+ZONES[z].label+' '+p+' percent occupied"><div class="fill" style="width:'+p+'%"></div></div></div>';
+  }).join('');
+  var d0=new Date();d0.setHours(0,0,0,0);d0=d0.getTime();
+  var hrs=[],peak={pct:-1,h:OPEN};
+  for(var h=OPEN;h<CLOSE;h++){
+    var a=d0+h*HOUR,b2=a+HOUR,seen={};
+    S.bookings.forEach(function(x){if(x.status!=='cancelled'&&x.start<b2&&a<x.end)seen[x.slot]=1;});
+    var used=Object.keys(seen).length, p2=open.length?Math.round(used/open.length*100):0;
+    if(p2>peak.pct)peak={pct:p2,h:h};
+    hrs.push({h:h,used:used,pct:Math.min(100,p2)});
+  }
+  var chart='<div class="hours" role="img" aria-label="Share of open bays booked, by hour today">'+hrs.map(function(x){
+    return '<div class="hcol" title="'+hh(x.h)+': '+x.used+' of '+open.length+' bays"><div class="hbar'+(x.h===nowH?' now':'')+'" style="height:'+x.pct+'%"></div></div>';
+  }).join('')+'</div><div class="hlabels" aria-hidden="true">'+hrs.map(function(x,i){return '<span>'+(i%2===0?hshort(x.h):'')+'</span>';}).join('')+'</div>';
+  var items=[];
+  S.bookings.forEach(function(b){
+    if(b.status==='booked'&&now>b.start+HOLD&&now<b.end)items.push('<div class="attn-item"><div><span class="pill st-alert">Late arrival</span> <span class="mono">'+esc(b.slot)+'</span> '+esc(b.plate)+'<div class="muted small">Due '+fmtT(b.start)+'. Hold ended at '+fmtT(b.start+HOLD)+'.</div></div><button class="btn sm danger" data-action="cancel" data-code="'+esc(b.code)+'">'+(armed===b.code?'Tap again to release':'Release bay')+'</button></div>');
+    if(b.status==='parked'&&now>b.end)items.push('<div class="attn-item"><div><span class="pill st-alert">Overstay</span> <span class="mono">'+esc(b.slot)+'</span> '+esc(b.plate)+'<div class="muted small">Booking ended '+fmtT(b.end)+'.</div></div><button class="btn sm" data-action="checkout" data-code="'+esc(b.code)+'">Check out</button></div>');
+  });
+  return tiles+'<div class="two"><div class="panel"><h3>Occupancy right now</h3>'+zones+'</div>'+
+    '<div class="panel"><h3>Needs attention</h3><div class="attn">'+(items.length?items.join(''):'<p class="muted">Nothing to follow up on.</p>')+'</div></div></div>'+
+    '<div class="panel"><div class="map-head"><h3>Booked bays by hour, today</h3><p class="muted small tnum">Peak '+hh(peak.h)+' at '+Math.max(peak.pct,0)+'%</p></div>'+chart+'</div>';
+}
+function adminBays(){
+  return Object.keys(ZONES).map(function(z){
+    var zs=zoneSlots(z);
+    return '<div class="panel bay-zone"><div class="bay-zone-head"><div><h3>'+ZONES[z].label+'</h3><p class="muted small">'+zs.length+' bays. Tap a bay to close or reopen it.</p></div>'+
+      '<div class="btn-row"><button class="btn sm" data-action="addbay" data-zone="'+z+'">Add bay</button><button class="btn sm" data-action="rmbay" data-zone="'+z+'">Remove last</button></div></div>'+
+      '<div class="bay-cards">'+zs.map(function(x){
+        var o=nowOcc(x.id), cls=x.status==='maint'?'closed':(o?'occ':'free');
+        var st=x.status==='maint'?'Out of service':(o?esc(o.plate):'Free now');
+        return '<button class="bcard '+cls+'" data-action="togglebay" data-slot="'+x.id+'"><span class="bay-id">'+x.id+'</span><span class="bcard-st">'+st+'</span><span class="bcard-hint">'+(x.status==='maint'?'Tap to reopen':'Tap to close')+'</span></button>';
+      }).join('')+'</div></div>';
+  }).join('');
+}
+function adminBookings(){
+  return '<div class="toolbar"><div class="field"><label for="a-q">Search</label><input id="a-q" placeholder="Code, vehicle, name or bay" value="'+esc(A.q)+'"></div>'+
+    '<div class="field"><label for="a-filter">Status</label><select id="a-filter">'+
+    [['all','All bookings'],['booked','Booked'],['parked','Parked'],['done','Completed'],['cancelled','Cancelled']].map(function(o){return '<option value="'+o[0]+'"'+(A.filter===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+
+    '</select></div></div>'+
+    '<div class="tbl-wrap"><table><thead><tr><th>Code</th><th>Bay</th><th>Vehicle and driver</th><th>Time</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="bk-body"></tbody></table></div>';
+}
+function renderRows(){
+  var q=A.q.trim().toLowerCase();
+  var rows=S.bookings.filter(function(b){
+    if(A.filter!=='all'&&b.status!==A.filter)return false;
+    if(!q)return true;
+    return (b.code+' '+b.plate+' '+b.name+' '+b.slot).toLowerCase().indexOf(q)>-1;
+  }).sort(function(a,b){return a.start-b.start;});
+  $('#bk-body').innerHTML=rows.length?rows.map(function(b){
+    var acts=b.status==='booked'?'<div class="btn-row"><button class="btn sm" data-action="checkin" data-code="'+esc(b.code)+'">Check in</button><button class="btn sm danger" data-action="cancel" data-code="'+esc(b.code)+'">'+(armed===b.code?'Tap again':'Cancel')+'</button></div>':
+      b.status==='parked'?'<div class="btn-row"><button class="btn sm" data-action="checkout" data-code="'+esc(b.code)+'">Check out</button></div>':'<span class="muted">None</span>';
+    return '<tr><td class="mono">'+esc(b.code)+'</td><td>'+esc(b.slot)+'</td><td><span class="mono">'+esc(b.plate)+'</span><div class="muted small">'+esc(b.name)+', '+esc(b.phone)+'</div></td><td>'+esc(fmtRange(b))+'</td><td>'+inr(b.amount)+'</td><td><span class="pill st-'+b.status+'">'+STATUS[b.status]+'</span></td><td>'+acts+'</td></tr>';
+  }).join(''):'<tr><td colspan="7" class="muted" style="text-align:center;padding:28px">No bookings match.</td></tr>';
+}
+function adminRates(){
+  return '<div class="panel"><h3>Hourly rates</h3><p class="muted small" style="margin-top:4px">New rates apply to new reservations. Existing tickets keep their price.</p>'+
+    '<form id="rates-form" novalidate><div class="rates">'+Object.keys(ZONES).map(function(z){
+      return '<div class="field"><label for="rate-'+z+'">'+ZONES[z].veh+' (₹ per hour)</label><input id="rate-'+z+'" type="number" min="0" max="999" step="1" inputmode="numeric" value="'+S.rates[z]+'"></div>';
+    }).join('')+'</div><div class="btn-row"><button class="btn primary" type="submit">Save rates</button></div><p class="err" role="status" style="margin-top:8px;color:var(--ok)">'+esc(A.rateMsg)+'</p></form></div>'+
+    '<div class="panel" style="margin-top:16px"><h3>Sample data</h3><p class="muted small" style="margin:4px 0 12px">Restore the starting bays, rates and example bookings for today.</p>'+
+    '<button class="btn danger" data-action="reset">'+(armed==='reset'?'Tap again to reset everything':'Reset sample data')+'</button></div>';
+}
+
+/* ---------- routing ---------- */
+function refresh(){
+  if(view==='book')renderBook();
+  else if(view==='tickets')renderTickets();
+  else renderAdmin();
+}
+function setView(v){
+  if(['book','tickets','admin'].indexOf(v)<0)v='book';
+  view=v;armed=null;
+  ['book','tickets','admin'].forEach(function(n){$('#view-'+n).hidden=(n!==v);});
+  document.querySelectorAll('[data-nav]').forEach(function(a){
+    if(a.dataset.nav===v)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');
+  });
+  refresh();
+  window.scrollTo(0,0);
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',function(e){
+  var t=e.target.closest('[data-action]');if(!t)return;
+  var a=t.dataset.action, code=t.dataset.code, hold=(a==='cancel'||a==='reset');
+  if(!hold)armed=null;
+  var b=code?S.bookings.find(function(x){return x.code===code;}):null;
+
+  if(a==='veh'){U.vehicle=t.dataset.v;U.slot=null;renderSeg();renderMap();renderPanel();}
+  else if(a==='pick'){
+    U.last=null;U.slot=(U.slot===t.dataset.slot)?null:t.dataset.slot;
+    renderMap();renderPanel();
+    if(U.slot&&window.innerWidth<=860)$('#bookpanel').scrollIntoView({block:'nearest'});
+  }
+  else if(a==='again'){U.last=null;U.slot=null;renderMap();renderPanel();}
+  else if(a==='copy'){
+    try{navigator.clipboard.writeText(code).then(function(){toast('Code copied');},function(){toast('Copy is not available. Select the code to copy it.');});}
+    catch(err){toast('Copy is not available. Select the code to copy it.');}
+  }
+  else if(a==='cancel'&&b){
+    if(armed!==code){armed=code;refresh();return;}
+    armed=null;b.status='cancelled';save();refresh();toast(b.code+' cancelled');
+  }
+  else if(a==='checkin'&&b){b.status='parked';save();refresh();toast(b.plate+' checked in to '+b.slot);}
+  else if(a==='checkout'&&b){b.status='done';save();refresh();toast(b.plate+' checked out. Collect '+inr(b.amount));}
+  else if(a==='atab'){A.tab=t.dataset.tab;A.rateMsg='';renderAdmin();}
+  else if(a==='signout'){A.authed=false;A.pinErr='';renderAdmin();}
+  else if(a==='togglebay'){
+    var sl=S.slots.find(function(x){return x.id===t.dataset.slot;});
+    if(sl.status==='maint'){sl.status='ok';toast('Bay '+sl.id+' reopened');}
+    else{
+      var n=Date.now();
+      var blocking=S.bookings.some(function(x){return isActive(x)&&x.slot===sl.id&&x.end>n;});
+      if(blocking){toast('Bay '+sl.id+' has active bookings. Cancel or check them out first.');return;}
+      sl.status='maint';toast('Bay '+sl.id+' closed');
+    }
+    save();renderAdmin();
+  }
+  else if(a==='addbay'){
+    var z=t.dataset.zone, nums=zoneSlots(z).map(function(x){return parseInt(x.id.slice(1),10);});
+    var next=(nums.length?Math.max.apply(null,nums):0)+1;
+    S.slots.push({id:z+next,zone:z,status:'ok'});save();renderAdmin();toast('Added bay '+z+next);
+  }
+  else if(a==='rmbay'){
+    var zz=t.dataset.zone, zs=zoneSlots(zz), last=zs[zs.length-1];
+    if(!last)return;
+    if(S.bookings.some(function(x){return x.slot===last.id&&isActive(x);})){toast('Bay '+last.id+' has active bookings and cannot be removed.');return;}
+    S.slots.splice(S.slots.indexOf(last),1);save();renderAdmin();toast('Removed bay '+last.id);
+  }
+  else if(a==='reset'){
+    if(armed!=='reset'){armed='reset';renderAdmin();return;}
+    armed=null;S=seed();save();U.slot=null;U.last=null;A.rateMsg='';renderAdmin();toast('Sample data restored');
+  }
+});
+
+document.addEventListener('submit',function(e){
+  var id=e.target.id;
+  if(['book-form','pin-form','find-form','rates-form'].indexOf(id)<0)return;
+  e.preventDefault();
+  if(id==='book-form')submitBook();
+  else if(id==='pin-form'){
+    if($('#a-pin').value===PIN){A.authed=true;A.pinErr='';}else A.pinErr='That PIN is not right. Try again.';
+    renderAdmin();
+  }
+  else if(id==='find-form'){
+    var c=$('#f-code').value.trim().toUpperCase(), msg=$('#find-msg');
+    var b=S.bookings.find(function(x){return x.code===c;});
+    if(!c){msg.textContent='Enter the code from your confirmation.';return;}
+    if(!b){msg.textContent='No ticket with that code. Check the letters and numbers on your confirmation.';return;}
+    if(S.mine.indexOf(c)>-1){msg.textContent='That ticket is already in your list.';return;}
+    S.mine.unshift(c);save();msg.textContent='Added '+c+'.';$('#f-code').value='';renderTickets();
+  }
+  else if(id==='rates-form'){
+    var nr={},ok=true;
+    Object.keys(ZONES).forEach(function(z){
+      var v=parseInt($('#rate-'+z).value,10);
+      if(isNaN(v)||v<0||v>999)ok=false;else nr[z]=v;
+    });
+    if(!ok){A.rateMsg='';toast('Enter a whole number from 0 to 999 for each rate.');return;}
+    S.rates=nr;save();A.rateMsg='Rates saved.';renderAdmin();
+  }
+});
+
+document.addEventListener('input',function(e){
+  var id=e.target.id;
+  if(id==='f-name')U.form.name=e.target.value;
+  else if(id==='f-phone'){e.target.value=e.target.value.replace(/\D/g,'');U.form.phone=e.target.value;}
+  else if(id==='f-plate')U.form.plate=e.target.value;
+  else if(id==='a-q'){A.q=e.target.value;renderRows();}
+});
+document.addEventListener('change',function(e){
+  var id=e.target.id;
+  if(id==='f-date'){
+    var v=e.target.value;
+    if(!v){e.target.value=U.date;return;}
+    if(!hasHours(v)){toast('Bookings for today have closed. Pick another date.');e.target.value=U.date;return;}
+    U.date=v;U.last=null;syncControls();renderMap();renderPanel();
+  }
+  else if(id==='f-start'){U.start=parseInt(e.target.value,10);U.last=null;syncControls();renderMap();renderPanel();}
+  else if(id==='f-dur'){U.dur=parseInt(e.target.value,10);U.last=null;renderMap();renderPanel();}
+  else if(id==='a-filter'){A.filter=e.target.value;renderRows();}
+});
+window.addEventListener('hashchange',function(){setView(location.hash.slice(1));});
+
+initWindow();
+setView(location.hash.slice(1));
+})();
+</script>
+
+</html>
